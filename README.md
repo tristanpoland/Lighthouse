@@ -87,8 +87,8 @@ Lighthouse uses a callback-based architecture that separates concerns and maximi
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│  Your Metrics   │──▶│   Lighthouse     │───▶│ Your Scaling    │
-│   System        │    │     Engine       │    │ Infrastructure  │
+│  Your Metrics   │──▶│    Lighthouse    │───▶│   Your Scaling  │
+│     System      │    │      Engine      │    │  Infrastructure │
 │                 │    │                  │    │                 │
 │ • Prometheus    │    │ • Policy Engine  │    │ • Kubernetes    │
 │ • Custom APIs   │    │ • Cooldowns      │    │ • AWS ASG       │
@@ -261,7 +261,7 @@ Lighthouse includes optional integrations for common platforms:
 
 ```toml
 [dependencies]
-lighthouse = { version = "0.1", features = ["kubernetes", "aws", "prometheus-metrics"] }
+lighthouse = { version = "0.1", features = ["prometheus-metrics"] }
 ```
 
 **Kubernetes** - Ready-to-use implementations for Kubernetes deployments, StatefulSets, and HPA integration.
@@ -286,7 +286,7 @@ Run any example:
 
 ```bash
 cargo run --example basic_usage
-cargo run --example kubernetes --features kubernetes
+cargo run --example kubernetes
 ```
 
 ## 📈 Performance
