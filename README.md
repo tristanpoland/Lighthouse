@@ -87,7 +87,7 @@ Lighthouse uses a callback-based architecture that separates concerns and maximi
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│  Your Metrics   │───▶│   Lighthouse     │───▶│ Your Scaling    │
+│  Your Metrics   │──▶│   Lighthouse     │───▶│ Your Scaling    │
 │   System        │    │     Engine       │    │ Infrastructure  │
 │                 │    │                  │    │                 │
 │ • Prometheus    │    │ • Policy Engine  │    │ • Kubernetes    │
