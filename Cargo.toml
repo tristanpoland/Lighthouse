@@ -1,0 +1,119 @@
+[package]
+name = "lighthouse"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A flexible, generic autoscaling library for Rust with type-safe callbacks and streaming metrics"
+documentation = "https://docs.rs/lighthouse"
+homepage = "https://github.com/yourusername/lighthouse"
+repository = "https://github.com/yourusername/lighthouse"
+license = "MIT OR Apache-2.0"
+keywords = ["autoscaling", "infrastructure", "kubernetes", "aws", "monitoring"]
+categories = ["development-tools", "network-programming", "asynchronous"]
+readme = "README.md"
+rust-version = "1.75"
+
+[dependencies]
+# Core async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+
+# Logging
+tracing = "0.1"
+
+# Async traits
+async-trait = "0.1"
+
+# Stream utilities
+futures = "0.3"
+
+# HTTP client for webhook integrations
+reqwest = { version = "0.11", optional = true, features = ["json"] }
+
+# Time utilities
+chrono = { version = "0.4", optional = true, features = ["serde"] }
+
+# Metrics collection
+prometheus = { version = "0.13", optional = true }
+
+# Configuration file formats
+toml = { version = "0.8", optional = true }
+yaml-rust = { version = "0.4", optional = true }
+
+[dev-dependencies]
+# Testing
+tokio-test = "0.4"
+mockall = "0.12"
+
+# Logging in tests
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Test utilities
+tempfile = "3.8"
+wiremock = "0.5"
+
+# Example dependencies
+chrono = { version = "0.4", features = ["serde"] }
+
+[features]
+default = ["tracing-integration"]
+
+# Core features
+tracing-integration = []
+
+# Metrics integration
+prometheus-metrics = ["prometheus"]
+
+# Configuration formats
+config-toml = ["toml"]
+config-yaml = ["yaml-rust"]
+
+# Time utilities
+time-utils = ["chrono"]
+
+# All integrations (for convenience)
+full = [
+    "prometheus-metrics",
+    "config-toml",
+    "config-yaml",
+    "time-utils"
+]
+
+[package.metadata.docs.rs]
+# Build docs with all features enabled
+all-features = true
+# Include examples in documentation
+rustdoc-args = ["--cfg", "docsrs"]
+
+[[example]]
+name = "kubernetes"
+required-features = ["kubernetes", "time-utils"]
+
+[[example]]
+name = "basic_usage"
+# No required features - uses only core functionality
+
+[profile.dev]
+# Fast compilation for development
+opt-level = 0
+debug = true
+overflow-checks = true
+
+[profile.release]
+# Optimized for production
+opt-level = 3
+debug = false
+lto = true
+codegen-units = 1
+panic = 'abort'
+
+[profile.test]
+# Good balance for testing
+opt-level = 1
+debug = true
