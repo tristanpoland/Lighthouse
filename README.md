@@ -2,9 +2,7 @@
 
 **Intelligent Autoscaling Library for Rust**
 
-[![Crates.io](https://img.shields.io/crates/v/lighthouse.svg)](https://crates.io/crates/lighthouse)
-[![Documentation](https://docs.rs/lighthouse/badge.svg)](https://docs.rs/lighthouse)
-[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/yourusername/lighthouse#license)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/tristanpoland/lighthouse#license)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
 
 Lighthouse is a flexible, generic autoscaling library that can work with any infrastructure or resource type. It provides type-safe callbacks and streaming metrics processing to make intelligent scaling decisions for your applications.
@@ -316,6 +314,6 @@ Lighthouse is dual-licensed under MIT OR Apache-2.0, the same as Rust itself.
 
 ---
 
-**Ready to get started?** Check out the [documentation](https://docs.rs/lighthouse) or dive into the [examples](examples/) to see Lighthouse in action.
+**Ready to get started?** dive into the [examples](examples/) to see Lighthouse in action.
 
 *Built with ❤️ in Rust for the modern infrastructure era.*
