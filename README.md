@@ -261,7 +261,7 @@ Lighthouse includes optional integrations for common platforms:
 
 ```toml
 [dependencies]
-lighthouse = { version = "0.1", features = ["prometheus-metrics"] }
+lighthouse = { git = "https://github.com/tristanpoland/Lighthouse" tag = "0.1.0", features = ["prometheus-metrics"] }
 ```
 
 **Kubernetes** - Ready-to-use implementations for Kubernetes deployments, StatefulSets, and HPA integration.
