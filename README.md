@@ -33,7 +33,7 @@ Add Lighthouse to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-lighthouse = "0.1"
+lighthouse = { git = "https://github.com/tristanpoland/Lighthouse" tag = "0.1.0" }
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 ```
