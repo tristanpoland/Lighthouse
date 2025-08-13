@@ -95,7 +95,7 @@ mod tests {
 	async fn test_engine_lifecycle() {
 		let config = LighthouseConfig::builder()
 			.evaluation_interval(1)
-			.add_resource_config("test", ResourceConfig {
+			.add_resource_config("test-type", ResourceConfig {
 				resource_type: "test-type".to_string(),
 				policies: vec![cpu_scaling_policy(80.0, 20.0, 1.5, 1)],
 				default_policy: Some("cpu-scaling".to_string()),
