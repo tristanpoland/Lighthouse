@@ -17,6 +17,7 @@ pub fn cpu_scaling_policy(
             scale_down_threshold,
             scale_factor,
             cooldown_seconds,
+            confidence: None, // Use default confidence
         }],
         min_capacity: None,
         max_capacity: None,
@@ -39,6 +40,7 @@ pub fn memory_scaling_policy(
             scale_down_threshold,
             scale_factor,
             cooldown_seconds,
+            confidence: None, // Use default confidence
         }],
         min_capacity: None,
         max_capacity: None,
@@ -61,6 +63,7 @@ pub fn request_rate_scaling_policy(
             scale_down_threshold,
             scale_factor,
             cooldown_seconds,
+            confidence: None, // Use default confidence
         }],
         min_capacity: None,
         max_capacity: None,
@@ -85,6 +88,7 @@ pub fn multi_metric_policy(
                 scale_down_threshold: cpu_threshold.1,
                 scale_factor,
                 cooldown_seconds,
+                confidence: None, // Use default confidence
             },
             ScalingThreshold {
                 metric_name: "memory_percent".to_string(),
@@ -92,6 +96,7 @@ pub fn multi_metric_policy(
                 scale_down_threshold: memory_threshold.1,
                 scale_factor,
                 cooldown_seconds,
+                confidence: None, // Use default confidence
             },
         ],
         min_capacity: None,

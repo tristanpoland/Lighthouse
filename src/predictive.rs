@@ -230,7 +230,7 @@ pub struct MetricForecast {
     
     /// When this forecast was generated
     #[cfg(feature = "time-utils")]
-    pub generated_at: DateTime<Utc>,
+    pub generated_at: chrono::DateTime<chrono::Utc>,
     #[cfg(not(feature = "time-utils"))]
     pub generated_at: u64,
     
@@ -258,7 +258,7 @@ pub struct MetricForecast {
 pub struct ForecastPoint {
     /// When this prediction is for
     #[cfg(feature = "time-utils")]
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
     #[cfg(not(feature = "time-utils"))]
     pub timestamp: u64,
     
@@ -294,7 +294,7 @@ pub struct SeasonalInfo {
 pub struct AnomalyAlert {
     /// When the anomaly is predicted to occur
     #[cfg(feature = "time-utils")]
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
     #[cfg(not(feature = "time-utils"))]
     pub timestamp: u64,
     
@@ -320,7 +320,7 @@ pub struct ProactiveRecommendation {
     
     /// When to execute the scaling (lead time before threshold breach)
     #[cfg(feature = "time-utils")]
-    pub execute_at: DateTime<Utc>,
+    pub execute_at: chrono::DateTime<chrono::Utc>,
     #[cfg(not(feature = "time-utils"))]
     pub execute_at: u64,
     

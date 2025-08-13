@@ -54,6 +54,7 @@
 //!                     scale_down_threshold: 20.0,
 //!                     scale_factor: 1.5,
 //!                     cooldown_seconds: 300,
+//!                     confidence: None,
 //!                 }],
 //!                 min_capacity: Some(2),
 //!                 max_capacity: Some(20),

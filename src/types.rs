@@ -73,6 +73,8 @@ pub struct ScalingThreshold {
     pub scale_factor: f64,
     /// Minimum time between scaling actions (prevents flapping)
     pub cooldown_seconds: u64,
+    /// Confidence level for scaling actions (0.0 to 1.0)
+    pub confidence: Option<f64>,
 }
 
 /// A scaling policy that combines multiple thresholds and rules

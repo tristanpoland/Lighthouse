@@ -387,7 +387,7 @@ impl LighthouseEngine {
                         "{} ({:.2}) exceeded scale-up threshold ({:.2})",
                         threshold.metric_name, metric_value, threshold.scale_up_threshold
                     ),
-                    confidence: 0.8, // TODO: Make this configurable
+                    confidence: threshold.confidence.unwrap_or(0.8),
                     timestamp: current_timestamp(),
                     metadata: HashMap::new(),
                 }));
@@ -405,7 +405,7 @@ impl LighthouseEngine {
                         "{} ({:.2}) below scale-down threshold ({:.2})",
                         threshold.metric_name, metric_value, threshold.scale_down_threshold
                     ),
-                    confidence: 0.8, // TODO: Make this configurable
+                    confidence: threshold.confidence.unwrap_or(0.8),
                     timestamp: current_timestamp(),
                     metadata: HashMap::new(),
                 }));

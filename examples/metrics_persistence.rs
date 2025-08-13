@@ -513,6 +513,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 scale_down_threshold: 30.0,
                                 scale_factor: 1.4,
                                 cooldown_seconds: 60, // Short cooldown for demo
+                                confidence: None,
                             },
                             ScalingThreshold {
                                 metric_name: "memory_percent".to_string(),
@@ -520,6 +521,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 scale_down_threshold: 40.0,
                                 scale_factor: 1.3,
                                 cooldown_seconds: 60,
+                                confidence: None,
                             },
                             ScalingThreshold {
                                 metric_name: "response_time_ms".to_string(),
@@ -527,6 +529,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 scale_down_threshold: 80.0,
                                 scale_factor: 1.5,
                                 cooldown_seconds: 90,
+                                confidence: None,
                             },
                         ],
                         min_capacity: Some(1),
@@ -549,7 +552,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Create engine with persistence
     println!("🚀 Creating engine with persistence...");
     let engine = LighthouseEngine::new_with_persistence(config, 
-        LighthouseCallbacks::new(metrics_provider, Arc::new(scaling_executor)), 
+        LighthouseCallbacks::new(metrics_provider.clone(), Arc::new(scaling_executor)), 
         store_config
     ).await?;
     

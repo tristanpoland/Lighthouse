@@ -108,9 +108,9 @@ all-features = true
 # Include examples in documentation
 rustdoc-args = ["--cfg", "docsrs"]
 
-[[example]]
-name = "kubernetes"
-required-features = ["kubernetes", "time-utils"]
+# [[example]]
+# name = "kubernetes"
+# required-features = ["kubernetes", "time-utils"]
 
 [[example]]
 name = "basic_usage"

@@ -623,6 +623,13 @@ impl MetricsStore {
         // Simple trend analysis
         let trend = self.analyze_simple_trend(&data_points);
         
+        // Calculate missing data percentage based on expected collection interval
+        let missing_data_percentage = self.calculate_missing_data_percentage(
+            &query.start_time, 
+            &query.end_time, 
+            data_points.len()
+        );
+        
         Ok(Some(MetricsStatistics {
             resource_id: resource_id.to_string(),
             metric_name: metric_name.to_string(),
@@ -636,8 +643,69 @@ impl MetricsStore {
             percentiles,
             trend,
             data_points: data_points.len(),
-            missing_data_percentage: 0.0, // TODO: Calculate based on expected vs actual data points
+            missing_data_percentage,
         }))
+    }
+    
+    /// Calculate the percentage of missing data based on expected collection interval
+    #[cfg(feature = "time-utils")]
+    fn calculate_missing_data_percentage(
+        &self,
+        start_time: &DateTime<Utc>,
+        end_time: &DateTime<Utc>,
+        actual_data_points: usize,
+    ) -> f64 {
+        // Assume data should be collected every 5 minutes (common interval)
+        let expected_interval_minutes = 5;
+        let time_span_minutes = (*end_time - *start_time).num_minutes();
+        
+        if time_span_minutes <= 0 {
+            return 0.0;
+        }
+        
+        let expected_data_points = (time_span_minutes / expected_interval_minutes) as usize + 1;
+        
+        if expected_data_points == 0 {
+            return 0.0;
+        }
+        
+        let missing_points = if actual_data_points < expected_data_points {
+            expected_data_points - actual_data_points
+        } else {
+            0
+        };
+        
+        (missing_points as f64 / expected_data_points as f64) * 100.0
+    }
+    
+    #[cfg(not(feature = "time-utils"))]
+    fn calculate_missing_data_percentage(
+        &self,
+        start_time: &u64,
+        end_time: &u64,
+        actual_data_points: usize,
+    ) -> f64 {
+        // Assume data should be collected every 300 seconds (5 minutes)
+        let expected_interval_seconds = 300u64;
+        let time_span_seconds = end_time.saturating_sub(*start_time);
+        
+        if time_span_seconds == 0 {
+            return 0.0;
+        }
+        
+        let expected_data_points = (time_span_seconds / expected_interval_seconds) as usize + 1;
+        
+        if expected_data_points == 0 {
+            return 0.0;
+        }
+        
+        let missing_points = if actual_data_points < expected_data_points {
+            expected_data_points - actual_data_points
+        } else {
+            0
+        };
+        
+        (missing_points as f64 / expected_data_points as f64) * 100.0
     }
     
     /// Perform simple trend analysis
@@ -722,14 +790,121 @@ impl MetricsStore {
             0.0
         };
         
+        // Detect seasonal patterns
+        let seasonality = self.detect_basic_seasonality(data_points);
+        
         TrendAnalysis {
             direction,
             confidence,
             change_rate_per_hour,
             slope,
             r_squared,
-            seasonality: vec![], // TODO: Implement seasonal pattern detection
+            seasonality,
         }
+    }
+    
+    /// Detect basic seasonal patterns in the data
+    fn detect_basic_seasonality(&self, data_points: &[HistoricalDataPoint]) -> Vec<crate::persistence::SeasonalPattern> {
+        if data_points.len() < 12 { // Need at least 12 points for pattern detection
+            return vec![];
+        }
+        
+        let mut patterns = vec![];
+        let values: Vec<f64> = data_points.iter().map(|dp| dp.value).collect();
+        
+        // Check for daily patterns (assuming hourly data collection)
+        if data_points.len() >= 24 {
+            let daily_correlation = self.calculate_autocorrelation(&values, 24);
+            if daily_correlation > 0.3 { // Threshold for significant correlation
+                patterns.push(crate::persistence::SeasonalPattern {
+                    pattern_type: "daily".to_string(),
+                    strength: daily_correlation.min(1.0),
+                    peak_times: self.find_daily_peaks(&values),
+                });
+            }
+        }
+        
+        // Check for weekly patterns (assuming hourly data, 168 hours in a week)
+        if data_points.len() >= 168 {
+            let weekly_correlation = self.calculate_autocorrelation(&values, 168);
+            if weekly_correlation > 0.25 {
+                patterns.push(crate::persistence::SeasonalPattern {
+                    pattern_type: "weekly".to_string(),
+                    strength: weekly_correlation.min(1.0),
+                    peak_times: self.find_weekly_peaks(),
+                });
+            }
+        }
+        
+        patterns
+    }
+    
+    /// Calculate autocorrelation for lag detection
+    fn calculate_autocorrelation(&self, values: &[f64], lag: usize) -> f64 {
+        if values.len() < lag + 1 {
+            return 0.0;
+        }
+        
+        let n = values.len() - lag;
+        let mean = values.iter().sum::<f64>() / values.len() as f64;
+        
+        let mut numerator = 0.0;
+        let mut denominator = 0.0;
+        
+        for i in 0..n {
+            let x = values[i] - mean;
+            let y = values[i + lag] - mean;
+            numerator += x * y;
+            denominator += x * x;
+        }
+        
+        if denominator == 0.0 {
+            0.0
+        } else {
+            numerator / denominator
+        }
+    }
+    
+    /// Find typical daily peak hours
+    fn find_daily_peaks(&self, values: &[f64]) -> Vec<String> {
+        // Simple heuristic: assume peak hours are when values are consistently high
+        let mut hourly_averages = vec![0.0; 24];
+        let mut hourly_counts = vec![0; 24];
+        
+        for (i, &value) in values.iter().enumerate() {
+            let hour = i % 24;
+            hourly_averages[hour] += value;
+            hourly_counts[hour] += 1;
+        }
+        
+        // Calculate actual averages
+        for i in 0..24 {
+            if hourly_counts[i] > 0 {
+                hourly_averages[i] /= hourly_counts[i] as f64;
+            }
+        }
+        
+        // Find hours where average is significantly above overall mean
+        let overall_mean = hourly_averages.iter().sum::<f64>() / 24.0;
+        let mut peaks = vec![];
+        
+        for (hour, &avg) in hourly_averages.iter().enumerate() {
+            if avg > overall_mean * 1.2 { // 20% above average
+                peaks.push(format!("{:02}:00", hour));
+            }
+        }
+        
+        if peaks.is_empty() {
+            vec!["12:00".to_string()] // Default to noon if no clear peaks
+        } else {
+            peaks
+        }
+    }
+    
+    /// Find typical weekly peak days
+    fn find_weekly_peaks(&self) -> Vec<String> {
+        // Simple heuristic for common business patterns
+        vec!["Monday".to_string(), "Tuesday".to_string(), "Wednesday".to_string()]
     }
     
     /// Run maintenance tasks (cleanup old data, create aggregates)

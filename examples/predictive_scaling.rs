@@ -579,6 +579,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 scale_down_threshold: 35.0, // for predictive scaling
                                 scale_factor: 1.3,
                                 cooldown_seconds: 120,      // Longer cooldown
+                                confidence: None,
                             },
                             ScalingThreshold {
                                 metric_name: "response_time_ms".to_string(),
@@ -586,6 +587,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 scale_down_threshold: 60.0,
                                 scale_factor: 1.4,
                                 cooldown_seconds: 180,
+                                confidence: None,
                             },
                         ],
                         min_capacity: Some(1),
@@ -879,6 +881,7 @@ impl PredictiveConfig {
                 scale_down_threshold: 35.0,
                 scale_factor: 1.3,
                 cooldown_seconds: 120,
+                confidence: None,
             }],
             min_capacity: Some(1),
             max_capacity: Some(20),
