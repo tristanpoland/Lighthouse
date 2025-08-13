@@ -2,11 +2,11 @@
 name = "lighthouse"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Tristan J. Poland <me@tridentforu.com>"]
 description = "A flexible, generic autoscaling library for Rust with type-safe callbacks and streaming metrics"
 documentation = "https://docs.rs/lighthouse"
-homepage = "https://github.com/yourusername/lighthouse"
-repository = "https://github.com/yourusername/lighthouse"
+homepage = "https://github.com/tristanpoland/lighthouse"
+repository = "https://github.com/tristanpoland/lighthouse"
 license = "MIT OR Apache-2.0"
 keywords = ["autoscaling", "infrastructure", "kubernetes", "aws", "monitoring"]
 categories = ["development-tools", "network-programming", "asynchronous"]
