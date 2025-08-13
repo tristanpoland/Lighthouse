@@ -51,11 +51,14 @@
 //! ).await?;
 //! ```
 
-#[cfg(feature = "predictive-scaling")]
-use statrs::statistics::Statistics;
+
 
 #[cfg(feature = "predictive-scaling")]
-use chrono::{DateTime, Utc, Duration as ChronoDuration};
+#[cfg(feature = "time-utils")]
+use chrono::{Utc, Duration as ChronoDuration};
+
+#[cfg(feature = "predictive-scaling")]
+use chrono::{Utc, Duration as ChronoDuration};
 
 #[cfg(feature = "metrics-persistence")]
 use crate::persistence::{MetricsStore, HistoricalDataPoint, MetricsQuery};
@@ -380,9 +383,23 @@ impl PredictiveScaler {
         if self.config.cache_forecasts {
             let cache = self.forecast_cache.read().await;
             if let Some(cached) = cache.get(&cache_key) {
-                let cache_age = Utc::now() - cached.cached_at;
-                if cache_age.num_minutes() < self.config.update_interval_minutes as i64 {
-                    return Ok(cached.forecast.clone());
+                #[cfg(feature = "time-utils")]
+                {
+                    let cache_age = Utc::now() - cached.cached_at;
+                    if cache_age.num_minutes() < self.config.update_interval_minutes as i64 {
+                        return Ok(cached.forecast.clone());
+                    }
+                }
+                #[cfg(not(feature = "time-utils"))]
+                {
+                    let current_time = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    let cache_age_seconds = current_time - cached.cached_at;
+                    if cache_age_seconds < (self.config.update_interval_minutes * 60) {
+                        return Ok(cached.forecast.clone());
+                    }
                 }
             }
         }
@@ -392,11 +409,29 @@ impl PredictiveScaler {
             (horizon.num_minutes() / 60 * 4) as u64 // At least 4x the forecast horizon
         );
         
+        #[cfg(feature = "time-utils")]
         let query = MetricsQuery::last_hours(
             resource_id.to_string(),
             Some(metric_name.to_string()),
             history_hours as i64,
         );
+        
+        #[cfg(not(feature = "time-utils"))]
+        let query = {
+            let current_time = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            let start_time = current_time - (history_hours * 3600);
+            MetricsQuery {
+                resource_id: resource_id.to_string(),
+                metric_name: Some(metric_name.to_string()),
+                start_time,
+                end_time: current_time,
+                aggregation: None,
+                limit: None,
+            }
+        };
         
         let historical_data = self.metrics_store.query_metrics(&query).await?;
         
@@ -428,7 +463,13 @@ impl PredictiveScaler {
             let mut cache = self.forecast_cache.write().await;
             cache.insert(cache_key, CachedForecast {
                 forecast: forecast.clone(),
+                #[cfg(feature = "time-utils")]
                 cached_at: Utc::now(),
+                #[cfg(not(feature = "time-utils"))]
+                cached_at: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
             });
         }
         
@@ -445,6 +486,15 @@ impl PredictiveScaler {
         let mut max_confidence = 0.0;
         let mut recommended_action: Option<ScaleAction> = None;
         let mut rationale_parts = Vec::new();
+
+        // Define current_time for both cfg branches
+        #[cfg(feature = "time-utils")]
+        let current_time = Utc::now();
+        #[cfg(not(feature = "time-utils"))]
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
         
         // Analyze forecasts for each metric used in policies
         for policy in policies {
@@ -470,10 +520,21 @@ impl PredictiveScaler {
                 }
                 
                 // Analyze predictions for threshold breaches
-                let lead_time = ChronoDuration::minutes(self.config.proactive_lead_time_minutes as i64);
-                let current_time = Utc::now();
-                let breach_window_end = current_time + horizon;
-                let action_window_start = current_time + lead_time;
+                #[cfg(feature = "time-utils")]
+                let (action_window_start, breach_window_end) = {
+                    let lead_time = ChronoDuration::minutes(self.config.proactive_lead_time_minutes as i64);
+                    let breach_window_end = current_time + horizon;
+                    let action_window_start = current_time + lead_time;
+                    (action_window_start, breach_window_end)
+                };
+                #[cfg(not(feature = "time-utils"))]
+                let (action_window_start, breach_window_end) = {
+                    let lead_time_seconds = self.config.proactive_lead_time_minutes * 60;
+                    let horizon_seconds = horizon.num_minutes() as u64 * 60;
+                    let action_window_start = current_time + lead_time_seconds;
+                    let breach_window_end = current_time + horizon_seconds;
+                    (action_window_start, breach_window_end)
+                };
                 
                 for prediction in &forecast.predictions {
                     if prediction.timestamp >= action_window_start && prediction.timestamp <= breach_window_end {
@@ -484,7 +545,23 @@ impl PredictiveScaler {
                                 max_confidence = confidence;
                                 supporting_forecasts.clear();
                                 supporting_forecasts.push(metric_name.clone());
-                                
+
+                                // Format time string for reason
+                                let time_str = {
+                                    #[cfg(feature = "time-utils")]
+                                    { prediction.timestamp.format("%H:%M").to_string() }
+                                    #[cfg(not(feature = "time-utils"))]
+                                    { format!("{}:{:02}", (prediction.timestamp / 3600) % 24, (prediction.timestamp / 60) % 60) }
+                                };
+
+                                // Calculate minutes until breach
+                                let minutes_until_breach = {
+                                    #[cfg(feature = "time-utils")]
+                                    { (prediction.timestamp - current_time).num_minutes() }
+                                    #[cfg(not(feature = "time-utils"))]
+                                    { ((prediction.timestamp as i64 - current_time as i64) / 60) }
+                                };
+
                                 recommended_action = Some(ScaleAction {
                                     resource_id: resource_id.to_string(),
                                     resource_type: "predicted".to_string(),
@@ -496,19 +573,24 @@ impl PredictiveScaler {
                                         metric_name,
                                         prediction.value,
                                         threshold.scale_up_threshold,
-                                        prediction.timestamp.format("%H:%M")
+                                        time_str
                                     ),
                                     confidence,
-                                    timestamp: current_time.timestamp() as u64,
+                                    timestamp: {
+                                        #[cfg(feature = "time-utils")]
+                                        { current_time.timestamp() as u64 }
+                                        #[cfg(not(feature = "time-utils"))]
+                                        { current_time }
+                                    },
                                     metadata: HashMap::new(),
                                 });
-                                
+
                                 rationale_parts.clear();
                                 rationale_parts.push(format!(
                                     "{} forecast shows breach of {:.1} threshold in {} minutes",
                                     metric_name,
                                     threshold.scale_up_threshold,
-                                    (prediction.timestamp - current_time).num_minutes()
+                                    minutes_until_breach
                                 ));
                             } else if confidence > self.config.confidence_threshold {
                                 supporting_forecasts.push(metric_name.clone());
@@ -518,7 +600,7 @@ impl PredictiveScaler {
                                 ));
                             }
                         }
-                        
+
                         // Check for scale-down conditions (less urgent, so higher confidence required)
                         else if prediction.value < threshold.scale_down_threshold {
                             let confidence = prediction.confidence * forecast.confidence;
@@ -526,7 +608,7 @@ impl PredictiveScaler {
                                 max_confidence = confidence;
                                 supporting_forecasts.clear();
                                 supporting_forecasts.push(metric_name.clone());
-                                
+
                                 recommended_action = Some(ScaleAction {
                                     resource_id: resource_id.to_string(),
                                     resource_type: "predicted".to_string(),
@@ -540,10 +622,15 @@ impl PredictiveScaler {
                                         threshold.scale_down_threshold
                                     ),
                                     confidence,
-                                    timestamp: current_time.timestamp() as u64,
+                                    timestamp: {
+                                        #[cfg(feature = "time-utils")]
+                                        { current_time.timestamp() as u64 }
+                                        #[cfg(not(feature = "time-utils"))]
+                                        { current_time }
+                                    },
                                     metadata: HashMap::new(),
                                 });
-                                
+
                                 rationale_parts.clear();
                                 rationale_parts.push(format!(
                                     "{} forecast shows sustained low utilization below {:.1}",
