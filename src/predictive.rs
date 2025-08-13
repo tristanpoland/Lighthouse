@@ -54,15 +54,17 @@
 #[cfg(feature = "predictive-scaling")]
 use statrs::statistics::Statistics;
 
-#[cfg(all(feature = "predictive-scaling", feature = "time-utils"))]
+#[cfg(feature = "predictive-scaling")]
 use chrono::{DateTime, Utc, Duration as ChronoDuration};
 
 #[cfg(feature = "metrics-persistence")]
 use crate::persistence::{MetricsStore, HistoricalDataPoint, MetricsQuery};
 
 use std::sync::Arc;
+#[allow(unused_imports)]
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
+#[allow(unused_imports)]
 use crate::types::{ResourceId, MetricValue, ScaleAction, ScaleDirection, ScalingPolicy};
 use crate::error::{LighthouseError, LighthouseResult};
 
@@ -366,7 +368,7 @@ impl PredictiveScaler {
     }
     
     /// Generate a forecast for a specific metric
-    #[cfg(feature = "time-utils")]
+    #[cfg(feature = "predictive-scaling")]
     pub async fn forecast_metric(
         &self,
         resource_id: &str,
@@ -559,7 +561,10 @@ impl PredictiveScaler {
             Ok(Some(ProactiveRecommendation {
                 resource_id: resource_id.to_string(),
                 action,
+                #[cfg(feature = "time-utils")]
                 execute_at: Utc::now() + ChronoDuration::minutes(self.config.proactive_lead_time_minutes as i64),
+                #[cfg(not(feature = "time-utils"))]
+                execute_at: (Utc::now() + ChronoDuration::minutes(self.config.proactive_lead_time_minutes as i64)).timestamp() as u64,
                 supporting_forecasts,
                 confidence: max_confidence,
                 rationale: rationale_parts.join("; "),
@@ -633,7 +638,10 @@ impl PredictiveScaler {
             let margin = z_score * std_error;
             
             predictions.push(ForecastPoint {
+                #[cfg(feature = "time-utils")]
                 timestamp: current_time + ChronoDuration::minutes((i as f64 * time_step) as i64),
+                #[cfg(not(feature = "time-utils"))]
+                timestamp: (current_time + ChronoDuration::minutes((i as f64 * time_step) as i64)).timestamp() as u64,
                 value: predicted_value.max(0.0), // Don't predict negative values
                 lower_bound: (predicted_value - margin).max(0.0),
                 upper_bound: predicted_value + margin,
@@ -647,7 +655,10 @@ impl PredictiveScaler {
         Ok(MetricForecast {
             resource_id: resource_id.to_string(),
             metric_name: metric_name.to_string(),
+            #[cfg(feature = "time-utils")]
             generated_at: current_time,
+            #[cfg(not(feature = "time-utils"))]
+            generated_at: current_time.timestamp() as u64,
             horizon_minutes: horizon.num_minutes() as u64,
             predictions,
             confidence: r_squared.max(0.1).min(0.95),
@@ -736,7 +747,10 @@ impl PredictiveScaler {
             let margin = 1.96 * std_dev * (1.0 - confidence + 0.1);
             
             predictions.push(ForecastPoint {
+                #[cfg(feature = "time-utils")]
                 timestamp: current_time + ChronoDuration::minutes((i as f64 * time_step) as i64),
+                #[cfg(not(feature = "time-utils"))]
+                timestamp: (current_time + ChronoDuration::minutes((i as f64 * time_step) as i64)).timestamp() as u64,
                 value: predicted_value.max(0.0),
                 lower_bound: (predicted_value - margin).max(0.0),
                 upper_bound: predicted_value + margin,
@@ -749,7 +763,10 @@ impl PredictiveScaler {
         Ok(MetricForecast {
             resource_id: resource_id.to_string(),
             metric_name: metric_name.to_string(),
+            #[cfg(feature = "time-utils")]
             generated_at: current_time,
+            #[cfg(not(feature = "time-utils"))]
+            generated_at: current_time.timestamp() as u64,
             horizon_minutes: horizon.num_minutes() as u64,
             predictions,
             confidence: base_confidence.max(0.1).min(0.95),
@@ -811,7 +828,10 @@ impl PredictiveScaler {
             let margin = 1.96 * mae * (1.0 + steps_ahead as f64 * 0.1);
             
             predictions.push(ForecastPoint {
+                #[cfg(feature = "time-utils")]
                 timestamp: current_time + ChronoDuration::minutes((i as f64 * time_step) as i64),
+                #[cfg(not(feature = "time-utils"))]
+                timestamp: (current_time + ChronoDuration::minutes((i as f64 * time_step) as i64)).timestamp() as u64,
                 value: predicted_value.max(0.0),
                 lower_bound: (predicted_value - margin).max(0.0),
                 upper_bound: predicted_value + margin,
@@ -824,7 +844,10 @@ impl PredictiveScaler {
         Ok(MetricForecast {
             resource_id: resource_id.to_string(),
             metric_name: metric_name.to_string(),
+            #[cfg(feature = "time-utils")]
             generated_at: current_time,
+            #[cfg(not(feature = "time-utils"))]
+            generated_at: current_time.timestamp() as u64,
             horizon_minutes: horizon.num_minutes() as u64,
             predictions,
             confidence,
@@ -947,9 +970,9 @@ pub struct PredictiveScaler;
 
 #[cfg(not(all(feature = "predictive-scaling", feature = "metrics-persistence")))]
 impl PredictiveScaler {
-    pub async fn new(
+    pub async fn new<T>(
         _config: PredictiveConfig,
-        _metrics_store: Arc<crate::persistence::MetricsStore>,
+        _metrics_store: T,
     ) -> LighthouseResult<Self> {
         Err(LighthouseError::config("Predictive scaling requires 'predictive-scaling' and 'metrics-persistence' features"))
     }

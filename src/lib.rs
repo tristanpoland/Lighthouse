@@ -1,11 +1,67 @@
 //! # Lighthouse - Intelligent Autoscaling Library
 //! 
 //! Lighthouse is a flexible, generic autoscaling library for Rust that can work with any
-//! infrastructure or resource type. It provides type-safe callbacks and streaming metrics
-//! processing to make scaling decisions.
+//! infrastructure or resource type. It provides type-safe callbacks, streaming metrics
+//! processing, advanced policy composition, predictive scaling, and comprehensive
+//! historical data analysis to make intelligent scaling decisions.
 //! 
-//! ## Quick Start
+//! ## 🎯 Core Philosophy
 //! 
+//! Lighthouse is designed to be **infrastructure-agnostic** and **policy-flexible**:
+//! - **Generic by Design**: Works with any platform through trait implementations
+//! - **Type Safety First**: Compile-time guarantees for scaling logic
+//! - **Production Ready**: Built for reliability, observability, and performance
+//! - **Extensible**: Advanced features through optional feature flags
+//! 
+//! ## 📊 Architecture Overview
+//! 
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────────────────────┐
+//! │                           Lighthouse Engine                                 │
+//! ├─────────────────┬─────────────────┬─────────────────┬───────────────────────┤
+//! │  Policy Engine  │ Metrics Storage │  Predictive AI  │   Observer System     │
+//! │                 │                 │                 │                       │
+//! │ • Basic Policies│ • SQLite Backend│ • Forecasting   │ • Event Logging       │
+//! │ • Composite     │ • Retention     │ • Trend Analysis│ • Custom Hooks        │  
+//! │ • Time-Based    │ • Aggregation   │ • Seasonality   │ • Monitoring          │
+//! │ • Weighted      │ • Statistics    │ • Anomalies     │ • Alerting            │
+//! └─────────────────┴─────────────────┴─────────────────┴───────────────────────┘
+//!                                        │
+//!                              ┌─────────▼─────────┐
+//!                              │   Your Callbacks  │
+//!                              │                   │
+//!                              │ • MetricsProvider │
+//!                              │ • ScalingExecutor │ 
+//!                              │ • ScalingObserver │
+//!                              └─────────┬─────────┘
+//!                                        │
+//!                     ┌──────────────────▼──────────────────┐
+//!                     │          Your Infrastructure        │
+//!                     │                                     │
+//!                     │ Kubernetes • AWS • Docker • GCP     │
+//!                     │ Bare Metal • Custom APIs • More     │
+//!                     └─────────────────────────────────────┘
+//! ```
+//! 
+//! ## 🚀 Feature Matrix
+//! 
+//! | Feature | Basic | With Persistence | With Predictive | Full Features |
+//! |---------|-------|------------------|-----------------|---------------|
+//! | Core Scaling | ✅ | ✅ | ✅ | ✅ |
+//! | Policy Composition | ✅ | ✅ | ✅ | ✅ |
+//! | Time-Based Policies | 🟡¹ | ✅ | ✅ | ✅ |
+//! | Historical Storage | ❌ | ✅ | ✅ | ✅ |
+//! | Trend Analysis | ❌ | ✅ | ✅ | ✅ |
+//! | Predictive Scaling | ❌ | ❌ | ✅ | ✅ |
+//! | Anomaly Detection | ❌ | ❌ | ✅ | ✅ |
+//! | Statistical Reports | ❌ | ✅ | ✅ | ✅ |
+//! 
+//! ¹ Basic time-based policies require `time-utils` feature
+//! 
+//! ## 🎛️ Usage Patterns
+//! 
+//! ### Basic Autoscaling
+//! Perfect for simple CPU/memory-based scaling:
 //! ```rust,no_run
 //! use lighthouse::{
 //!     LighthouseEngine, LighthouseConfig, LighthouseCallbacks,
@@ -106,7 +162,9 @@ pub mod tests;
 pub mod engine;
 pub mod policies;
 pub mod callbacks;
+#[cfg(feature = "predictive-scaling")]
 pub mod predictive;
+#[cfg(feature = "metrics-persistence")]
 pub mod persistence;
 
 // Re-export common types for convenience
@@ -115,7 +173,11 @@ pub use types::{
     ResourceMetrics, ScaleAction, ScaleDirection,
     ScalingThreshold, ScalingPolicy, ResourceConfig,
     ResourceId, MetricValue, Timestamp,
+    CompositePolicy, CompositeLogic, CustomPolicyFn,
 };
+
+#[cfg(feature = "time-utils")]
+pub use types::{TimeSchedule, TimeBasedPolicy};
 
 pub use error::{LighthouseError, LighthouseResult};
 
@@ -128,6 +190,7 @@ pub use engine::{
     LighthouseEngine, LighthouseHandle, EngineStatus,
 };
 
+#[cfg(feature = "metrics-persistence")]
 pub use persistence::{
     MetricsStore, MetricsStoreConfig, MetricsStoreConfigBuilder,
     RetentionPolicy, HistoricalDataPoint, MetricsStatistics,
@@ -135,6 +198,7 @@ pub use persistence::{
     SeasonalPattern, StoreStatistics,
 };
 
+#[cfg(feature = "predictive-scaling")]
 pub use predictive::{
     PredictiveScaler, PredictiveConfig, PredictiveConfigBuilder,
     ForecastModel, MetricForecast, ForecastPoint, ProactiveRecommendation,

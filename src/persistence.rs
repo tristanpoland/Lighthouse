@@ -51,6 +51,7 @@ use sqlx::{sqlite::SqlitePool, Row, Sqlite, Pool};
 #[cfg(feature = "time-utils")]
 use chrono::{DateTime, Utc, Duration as ChronoDuration};
 use std::collections::HashMap;
+#[allow(unused_imports)]
 use std::path::Path;
 use serde::{Serialize, Deserialize};
 
@@ -934,7 +935,7 @@ impl MetricsStore {
         let raw_cutoff = now - (self.config.retention_policy.raw_data_days as u64 * 24 * 60 * 60);
         
         sqlx::query("DELETE FROM raw_metrics WHERE timestamp < ?")
-            .bind(raw_cutoff)
+            .bind(raw_cutoff as i64)
             .execute(&self.pool).await
             .map_err(|e| LighthouseError::config(&format!("Failed to cleanup raw data: {}", e)))?;
         
@@ -945,7 +946,7 @@ impl MetricsStore {
         let hourly_cutoff = now - (self.config.retention_policy.hourly_aggregates_days as u64 * 24 * 60 * 60);
         
         sqlx::query("DELETE FROM aggregated_metrics WHERE aggregation_level = 'hourly' AND timestamp < ?")
-            .bind(hourly_cutoff)
+            .bind(hourly_cutoff as i64)
             .execute(&self.pool).await
             .map_err(|e| LighthouseError::config(&format!("Failed to cleanup hourly data: {}", e)))?;
         
@@ -956,7 +957,7 @@ impl MetricsStore {
         let daily_cutoff = now - (self.config.retention_policy.daily_aggregates_days as u64 * 24 * 60 * 60);
         
         sqlx::query("DELETE FROM aggregated_metrics WHERE aggregation_level = 'daily' AND timestamp < ?")
-            .bind(daily_cutoff)
+            .bind(daily_cutoff as i64)
             .execute(&self.pool).await
             .map_err(|e| LighthouseError::config(&format!("Failed to cleanup daily data: {}", e)))?;
         
@@ -1084,6 +1085,7 @@ impl MetricsStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(unused_imports)]
     use crate::utils::multi_metrics;
     
     #[cfg(feature = "metrics-persistence")]
