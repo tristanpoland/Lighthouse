@@ -105,6 +105,8 @@ pub mod tests;
 pub mod engine;
 pub mod policies;
 pub mod callbacks;
+pub mod predictive;
+pub mod persistence;
 
 // Re-export common types for convenience
 pub use types::{
@@ -123,4 +125,17 @@ pub use callbacks::{
 
 pub use engine::{
     LighthouseEngine, LighthouseHandle, EngineStatus,
+};
+
+pub use persistence::{
+    MetricsStore, MetricsStoreConfig, MetricsStoreConfigBuilder,
+    RetentionPolicy, HistoricalDataPoint, MetricsStatistics,
+    TrendAnalysis, TrendDirection, AggregationLevel, MetricsQuery,
+    SeasonalPattern, StoreStatistics,
+};
+
+pub use predictive::{
+    PredictiveScaler, PredictiveConfig, PredictiveConfigBuilder,
+    ForecastModel, MetricForecast, ForecastPoint, ProactiveRecommendation,
+    SeasonalInfo, AnomalyAlert,
 };
