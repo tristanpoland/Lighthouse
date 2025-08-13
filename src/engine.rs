@@ -13,6 +13,9 @@ use crate::types::{
     LighthouseConfig, ResourceId, ResourceMetrics, ScaleAction, ScaleDirection, ScalingPolicy,
 };
 
+#[cfg(feature = "metrics-persistence")]
+use crate::persistence::{MetricsStore, MetricsStoreConfig};
+
 /// Commands that can be sent to the lighthouse engine
 #[derive(Debug)]
 pub enum EngineCommand {
@@ -28,6 +31,25 @@ pub enum EngineCommand {
     /// Get current engine status
     GetStatus {
         response: tokio::sync::oneshot::Sender<EngineStatus>,
+    },
+    /// Get historical metrics (requires persistence feature)
+    #[cfg(feature = "metrics-persistence")]
+    GetHistoricalMetrics {
+        query: crate::persistence::MetricsQuery,
+        response: tokio::sync::oneshot::Sender<LighthouseResult<Vec<crate::persistence::HistoricalDataPoint>>>,
+    },
+    /// Get metrics statistics (requires persistence feature)
+    #[cfg(feature = "metrics-persistence")]
+    GetMetricsStatistics {
+        resource_id: ResourceId,
+        metric_name: String,
+        hours: i64,
+        response: tokio::sync::oneshot::Sender<LighthouseResult<Option<crate::persistence::MetricsStatistics>>>,
+    },
+    /// Run maintenance tasks (cleanup, aggregation)
+    #[cfg(feature = "metrics-persistence")]
+    RunMaintenance {
+        response: tokio::sync::oneshot::Sender<LighthouseResult<()>>,
     },
     /// Shutdown the engine
     Shutdown,
@@ -77,6 +99,9 @@ pub struct LighthouseEngine {
     status: Arc<RwLock<EngineStatus>>,
     metrics_cache: Arc<RwLock<HashMap<ResourceId, ResourceMetrics>>>,
     cooldown_tracker: Arc<RwLock<CooldownTracker>>,
+    
+    #[cfg(feature = "metrics-persistence")]
+    metrics_store: Option<Arc<MetricsStore>>,
 }
 
 impl LighthouseEngine {
@@ -97,7 +122,38 @@ impl LighthouseEngine {
             })),
             metrics_cache: Arc::new(RwLock::new(HashMap::new())),
             cooldown_tracker: Arc::new(RwLock::new(CooldownTracker::new())),
+            
+            #[cfg(feature = "metrics-persistence")]
+            metrics_store: None,
         }
+    }
+    
+    /// Create a new lighthouse engine with metrics persistence
+    #[cfg(feature = "metrics-persistence")]
+    pub async fn new_with_persistence(
+        config: LighthouseConfig, 
+        callbacks: LighthouseCallbacks,
+        store_config: MetricsStoreConfig
+    ) -> LighthouseResult<Self> {
+        let (command_tx, command_rx) = mpsc::unbounded_channel();
+        
+        let metrics_store = Arc::new(MetricsStore::new(store_config).await?);
+
+        Ok(Self {
+            config: Arc::new(RwLock::new(config)),
+            callbacks,
+            command_tx,
+            command_rx: Some(command_rx),
+            status: Arc::new(RwLock::new(EngineStatus {
+                is_running: false,
+                resources_tracked: 0,
+                total_recommendations: 0,
+                last_evaluation: None,
+            })),
+            metrics_cache: Arc::new(RwLock::new(HashMap::new())),
+            cooldown_tracker: Arc::new(RwLock::new(CooldownTracker::new())),
+            metrics_store: Some(metrics_store),
+        })
     }
 
     /// Get a handle to send commands to the engine
@@ -181,6 +237,40 @@ impl LighthouseEngine {
                 let status = self.status.read().await.clone();
                 let _ = response.send(status); // Ignore send errors
             }
+            #[cfg(feature = "metrics-persistence")]
+            EngineCommand::GetHistoricalMetrics { query, response } => {
+                let result = if let Some(store) = &self.metrics_store {
+                    store.query_metrics(&query).await
+                } else {
+                    Err(LighthouseError::config("Metrics persistence not enabled"))
+                };
+                let _ = response.send(result); // Ignore send errors
+            }
+            #[cfg(feature = "metrics-persistence")]
+            EngineCommand::GetMetricsStatistics { resource_id, metric_name, hours, response } => {
+                let result = if let Some(store) = &self.metrics_store {
+                    #[cfg(feature = "time-utils")]
+                    {
+                        store.get_statistics(&resource_id, &metric_name, hours).await
+                    }
+                    #[cfg(not(feature = "time-utils"))]
+                    {
+                        Err(LighthouseError::config("Statistics require time-utils feature"))
+                    }
+                } else {
+                    Err(LighthouseError::config("Metrics persistence not enabled"))
+                };
+                let _ = response.send(result); // Ignore send errors
+            }
+            #[cfg(feature = "metrics-persistence")]
+            EngineCommand::RunMaintenance { response } => {
+                let result = if let Some(store) = &self.metrics_store {
+                    store.run_maintenance().await
+                } else {
+                    Err(LighthouseError::config("Metrics persistence not enabled"))
+                };
+                let _ = response.send(result); // Ignore send errors
+            }
             EngineCommand::Shutdown => {
                 info!("Shutdown command received");
                 return Err(LighthouseError::engine_not_running("Shutdown requested"));
@@ -201,6 +291,16 @@ impl LighthouseEngine {
             .validate_metrics(&metrics, &context).await?;
 
         if let Some(validated) = validated_metrics {
+            // Store in persistence layer if available
+            #[cfg(feature = "metrics-persistence")]
+            if let Some(store) = &self.metrics_store {
+                if let Err(e) = store.store_metrics(&validated).await {
+                    warn!("Failed to persist metrics: {}", e);
+                    // Continue execution even if persistence fails
+                }
+            }
+            
+            // Update in-memory cache
             let mut cache = self.metrics_cache.write().await;
             cache.insert(validated.resource_id.clone(), validated);
 
@@ -287,7 +387,7 @@ impl LighthouseEngine {
                         "{} ({:.2}) exceeded scale-up threshold ({:.2})",
                         threshold.metric_name, metric_value, threshold.scale_up_threshold
                     ),
-                    confidence: 0.8, // TODO: Make this configurable
+                    confidence: threshold.confidence.unwrap_or(0.8),
                     timestamp: current_timestamp(),
                     metadata: HashMap::new(),
                 }));
@@ -305,7 +405,7 @@ impl LighthouseEngine {
                         "{} ({:.2}) below scale-down threshold ({:.2})",
                         threshold.metric_name, metric_value, threshold.scale_down_threshold
                     ),
-                    confidence: 0.8, // TODO: Make this configurable
+                    confidence: threshold.confidence.unwrap_or(0.8),
                     timestamp: current_timestamp(),
                     metadata: HashMap::new(),
                 }));
@@ -438,6 +538,72 @@ impl LighthouseHandle {
             response: response_tx,
         })?;
         Ok(response_rx.await?)
+    }
+
+    /// Get historical metrics data (requires persistence feature)
+    #[cfg(feature = "metrics-persistence")]
+    pub async fn get_historical_metrics(
+        &self, 
+        query: crate::persistence::MetricsQuery
+    ) -> LighthouseResult<Vec<crate::persistence::HistoricalDataPoint>> {
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        self.command_tx.send(EngineCommand::GetHistoricalMetrics {
+            query,
+            response: response_tx,
+        })?;
+        response_rx.await?
+    }
+    
+    /// Get metrics statistics and trend analysis (requires persistence and time-utils features)
+    #[cfg(feature = "metrics-persistence")]
+    pub async fn get_metrics_statistics(
+        &self,
+        resource_id: ResourceId,
+        metric_name: String,
+        hours: i64,
+    ) -> LighthouseResult<Option<crate::persistence::MetricsStatistics>> {
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        self.command_tx.send(EngineCommand::GetMetricsStatistics {
+            resource_id,
+            metric_name,
+            hours,
+            response: response_tx,
+        })?;
+        response_rx.await?
+    }
+    
+    /// Run maintenance tasks on the metrics store (cleanup, aggregation)
+    #[cfg(feature = "metrics-persistence")]
+    pub async fn run_maintenance(&self) -> LighthouseResult<()> {
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        self.command_tx.send(EngineCommand::RunMaintenance {
+            response: response_tx,
+        })?;
+        response_rx.await?
+    }
+    
+    /// Get quick metrics history for the last N hours (convenience method)
+    #[cfg(all(feature = "metrics-persistence", feature = "time-utils"))]
+    pub async fn get_metrics_last_hours(
+        &self,
+        resource_id: ResourceId,
+        metric_name: Option<String>,
+        hours: i64,
+    ) -> LighthouseResult<Vec<crate::persistence::HistoricalDataPoint>> {
+        let query = crate::persistence::MetricsQuery::last_hours(resource_id, metric_name, hours);
+        self.get_historical_metrics(query).await
+    }
+    
+    /// Get quick metrics history for the last N days (convenience method)
+    #[cfg(all(feature = "metrics-persistence", feature = "time-utils"))]
+    pub async fn get_metrics_last_days(
+        &self,
+        resource_id: ResourceId,
+        metric_name: Option<String>,
+        days: i64,
+    ) -> LighthouseResult<Vec<crate::persistence::HistoricalDataPoint>> {
+        let query = crate::persistence::MetricsQuery::last_days(resource_id, metric_name, days);
+        self.get_historical_metrics(query).await
     }
 
     /// Shutdown the engine

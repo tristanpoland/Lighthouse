@@ -250,6 +250,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 scale_down_threshold: 25.0, // Scale down at 25% CPU
                                 scale_factor: 1.5,          // Scale by 50%
                                 cooldown_seconds: 30,       // Wait 30s between scaling
+                                confidence: None,            // Use default confidence
                             },
                             ScalingThreshold {
                                 metric_name: "memory_percent".to_string(),
@@ -257,6 +258,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 scale_down_threshold: 30.0, // Scale down at 30% memory
                                 scale_factor: 1.3,          // Scale by 30%
                                 cooldown_seconds: 45,       // Wait 45s between scaling
+                                confidence: None,            // Use default confidence
                             },
                         ],
                         min_capacity: Some(1),
@@ -370,6 +372,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 scale_down_threshold: 20.0,
                                 scale_factor: 2.0,          // More aggressive scaling
                                 cooldown_seconds: 15,       // Shorter cooldown
+                                confidence: None,            // Use default confidence
                             },
                         ],
                         min_capacity: Some(1),

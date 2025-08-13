@@ -2,12 +2,13 @@
 name = "lighthouse"
 version = "0.1.0"
 edition = "2021"
-authors = ["Tristan J. Poland"]
+authors = ["Tristan J. Poland <me@tridentforu.com>"]
 description = "A flexible, generic autoscaling library for Rust with type-safe callbacks and streaming metrics"
 documentation = "https://docs.rs/lighthouse"
-homepage = "https://github.com/tristanpoland/lighthouse"
-repository = "https://github.com/tristanpoland/lighthouse"
+homepage = "https://github.com/OmniCloudOrg/lighthouse"
+repository = "https://github.com/OmniCloudOrg/lighthouse"
 license = "MIT"
+
 keywords = ["autoscaling", "infrastructure", "kubernetes", "aws", "monitoring"]
 categories = ["development-tools", "network-programming", "asynchronous"]
 readme = "README.md"
@@ -42,6 +43,12 @@ chrono = { version = "0.4", optional = true, features = ["serde"] }
 # Metrics collection
 prometheus = { version = "0.13", optional = true }
 
+# Database for metrics persistence
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "sqlite", "chrono", "uuid"], optional = true }
+
+# Statistics and analysis
+statrs = { version = "0.16", optional = true }
+
 # Configuration file formats
 toml = { version = "0.8", optional = true }
 yaml-rust = { version = "0.4", optional = true }
@@ -57,6 +64,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Test utilities
 tempfile = "3.8"
 wiremock = "0.5"
+
+# For examples
+rand = "0.8"
 
 # Example dependencies
 chrono = { version = "0.4", features = ["serde"] }
@@ -77,12 +87,20 @@ config-yaml = ["yaml-rust"]
 # Time utilities
 time-utils = ["chrono"]
 
+# Metrics persistence
+metrics-persistence = ["sqlx", "chrono"]
+
+# Predictive scaling
+predictive-scaling = ["statrs", "chrono"]
+
 # All integrations (for convenience)
 full = [
     "prometheus-metrics",
     "config-toml",
     "config-yaml",
-    "time-utils"
+    "time-utils",
+    "metrics-persistence",
+    "predictive-scaling"
 ]
 
 [package.metadata.docs.rs]
@@ -91,9 +109,9 @@ all-features = true
 # Include examples in documentation
 rustdoc-args = ["--cfg", "docsrs"]
 
-[[example]]
-name = "kubernetes"
-required-features = ["kubernetes", "time-utils"]
+# [[example]]
+# name = "kubernetes"
+# required-features = ["kubernetes", "time-utils"]
 
 [[example]]
 name = "basic_usage"

@@ -73,6 +73,8 @@ pub struct ScalingThreshold {
     pub scale_factor: f64,
     /// Minimum time between scaling actions (prevents flapping)
     pub cooldown_seconds: u64,
+    /// Confidence level for scaling actions (0.0 to 1.0)
+    pub confidence: Option<f64>,
 }
 
 /// A scaling policy that combines multiple thresholds and rules
@@ -89,6 +91,66 @@ pub struct ScalingPolicy {
     /// Whether this policy is currently active
     pub enabled: bool,
 }
+
+/// Time-based scheduling for policies
+#[cfg(feature = "time-utils")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeSchedule {
+    /// Start time (24-hour format, e.g., "09:00")
+    pub start_time: String,
+    /// End time (24-hour format, e.g., "17:00")
+    pub end_time: String,
+    /// Days of the week this schedule applies (0=Sunday, 1=Monday, etc.)
+    pub days_of_week: Vec<u8>,
+    /// Timezone (e.g., "UTC", "America/New_York")
+    pub timezone: Option<String>,
+}
+
+/// Composite policy logic for combining multiple policies
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CompositeLogic {
+    /// All policies must trigger to scale (AND logic)
+    AllMustTrigger,
+    /// Any policy can trigger scaling (OR logic)
+    AnyCanTrigger,
+    /// Majority of policies must agree
+    Majority,
+    /// Custom weighted voting system
+    Weighted(Vec<f64>), // Weights for each policy
+}
+
+/// Advanced policy that can combine multiple basic policies
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompositePolicy {
+    /// Name of this composite policy
+    pub name: String,
+    /// Basic policies to combine
+    pub policies: Vec<ScalingPolicy>,
+    /// How to combine the policies
+    pub logic: CompositeLogic,
+    /// Time-based activation (optional)
+    #[cfg(feature = "time-utils")]
+    pub schedule: Option<TimeSchedule>,
+    /// Whether this composite policy is active
+    pub enabled: bool,
+}
+
+/// Time-based policy that applies different scaling rules based on time
+#[cfg(feature = "time-utils")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeBasedPolicy {
+    /// Name of this time-based policy
+    pub name: String,
+    /// Different policies for different time periods
+    pub scheduled_policies: Vec<(TimeSchedule, ScalingPolicy)>,
+    /// Fallback policy when no schedule matches
+    pub default_policy: Option<ScalingPolicy>,
+    /// Whether this time-based policy is active
+    pub enabled: bool,
+}
+
+/// Custom policy evaluation function signature
+pub type CustomPolicyFn = Box<dyn Fn(&ResourceMetrics, &crate::callbacks::CallbackContext) -> Option<ScaleAction> + Send + Sync>;
 
 /// Configuration for a specific resource type
 #[derive(Debug, Clone, Serialize, Deserialize)]
