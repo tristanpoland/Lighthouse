@@ -15,6 +15,7 @@ Whether you're running Kubernetes, AWS, bare metal servers, or even custom infra
 
 ## ✨ Features
 
+### Core Features
 **Generic & Platform Agnostic** - Works with Kubernetes, AWS, Docker, bare metal, or any custom infrastructure through trait-based callbacks.
 
 **Type-Safe Configuration** - Compile-time guarantees for your scaling logic with rich configuration options and validation.
@@ -26,6 +27,15 @@ Whether you're running Kubernetes, AWS, bare metal servers, or even custom infra
 **Comprehensive Observability** - Built-in hooks for logging, monitoring, and alerting on scaling events.
 
 **Fully Async** - Built on Tokio with non-blocking operations and efficient resource usage.
+
+### Advanced Features
+**📊 Metrics Persistence** - Long-term metrics storage with SQLite backend, historical analysis, and trend detection for data-driven scaling decisions.
+
+**🔮 Predictive Scaling** - Proactive scaling based on historical trends using multiple forecasting algorithms (Linear Regression, Moving Average, Exponential Smoothing).
+
+**📈 Statistical Analysis** - Built-in statistical analysis with confidence intervals, seasonal pattern detection, and anomaly identification.
+
+**🗄️ Data Retention Policies** - Automatic data aggregation and cleanup with configurable retention periods for raw, hourly, and daily data.
 
 ## 🚀 Quick Start
 
@@ -194,6 +204,7 @@ let config = LighthouseConfig::builder()
                     scale_down_threshold: 200.0,
                     scale_factor: 2.0,
                     cooldown_seconds: 180,
+                    confidence: None, // Use default confidence
                 }],
                 min_capacity: Some(2),
                 max_capacity: Some(50),
@@ -255,38 +266,76 @@ let callbacks = LighthouseCallbacks::new(metrics_provider, scaling_executor)
     .add_observer(Arc::new(ScalingLogger));
 ```
 
-## 🔧 Platform Integrations
-
-Lighthouse includes optional integrations for common platforms:
-
-```toml
-[dependencies]
-lighthouse = { version = "0.1", features = ["prometheus-metrics"] }
-```
-
-**Kubernetes** - Ready-to-use implementations for Kubernetes deployments, StatefulSets, and HPA integration.
-
-**AWS** - Support for Auto Scaling Groups, ECS services, and Lambda concurrency scaling.
-
-**Prometheus** - Built-in metrics collection and alerting integration.
-
-**Webhooks** - HTTP callback support for custom integrations and notifications.
-
 ## 🚦 Examples
 
 The repository includes comprehensive examples:
 
-- **`basic_usage.rs`** - Core concepts and simple setup
-- **`kubernetes.rs`** - Complete Kubernetes integration
-- **`aws_ec2.rs`** - AWS Auto Scaling Groups
-- **`prometheus_metrics.rs`** - Metrics collection and alerting
-- **`webhook_notifications.rs`** - Custom HTTP integrations
+- **`basic_usage.rs`** - Core concepts and simple setup with fundamental autoscaling
+- **`metrics_persistence.rs`** - Complete metrics storage with historical analysis, trend detection, and persistence-aware scaling
+- **`predictive_scaling.rs`** - Advanced forecasting with multiple algorithms and proactive scaling recommendations
 
 Run any example:
 
 ```bash
 cargo run --example basic_usage
-cargo run --example kubernetes
+cargo run --example metrics_persistence --features "metrics-persistence time-utils"
+cargo run --example predictive_scaling --features "predictive-scaling time-utils"
+```
+
+## 🔬 Advanced Capabilities
+
+### Metrics Persistence
+```rust
+// Enable persistence with SQLite backend
+let store_config = MetricsStoreConfig::builder()
+    .database_path("./lighthouse.db")
+    .retention_policy(
+        RetentionPolicy::new()
+            .raw_data_days(7)      // Keep raw data for 1 week
+            .hourly_aggregates_days(30)  // Keep hourly data for 1 month
+            .daily_aggregates_days(365)  // Keep daily data for 1 year
+    )
+    .build();
+
+let engine = LighthouseEngine::new_with_persistence(config, callbacks, store_config).await?;
+
+// Query historical data for trend analysis
+let stats = handle.get_metrics_statistics(
+    "web-frontend".to_string(),
+    "cpu_percent".to_string(), 
+    24 // last 24 hours
+).await?;
+
+println!("Mean CPU: {:.1}%, Trend: {:?}", stats.mean, stats.trend.direction);
+```
+
+### Predictive Scaling
+```rust
+// Configure predictive scaling with multiple algorithms
+let predictive_config = PredictiveConfig::builder()
+    .enable_linear_regression(true)
+    .enable_moving_average(true)
+    .enable_exponential_smoothing(true)
+    .forecast_horizon_minutes(60)
+    .minimum_data_points(10)
+    .confidence_threshold(0.7)
+    .build();
+
+let predictive_scaler = PredictiveScaler::new(predictive_config, metrics_store);
+
+// Get proactive scaling recommendations
+let recommendations = predictive_scaler.get_scaling_recommendations(
+    "web-frontend",
+    vec!["cpu_percent".to_string(), "memory_percent".to_string()]
+).await?;
+
+for recommendation in recommendations {
+    println!("Predicted {} spike in {}m: scale {} instances", 
+        recommendation.metric_name,
+        recommendation.trigger_in_minutes,
+        recommendation.recommended_action.scale_factor
+    );
+}
 ```
 
 ## 📈 Performance
