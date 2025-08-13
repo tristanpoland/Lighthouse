@@ -1,6 +1,6 @@
 [package]
 name = "lighthouse"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 authors = ["Tristan J. Poland <me@tridentforu.com>"]
 description = "A flexible, generic autoscaling library for Rust with type-safe callbacks and streaming metrics"
