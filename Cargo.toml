@@ -7,7 +7,8 @@ description = "A flexible, generic autoscaling library for Rust with type-safe c
 documentation = "https://docs.rs/lighthouse"
 homepage = "https://github.com/OmniCloudOrg/lighthouse"
 repository = "https://github.com/OmniCloudOrg/lighthouse"
-license = "MIT OR Apache-2.0"
+license = "MIT"
+
 keywords = ["autoscaling", "infrastructure", "kubernetes", "aws", "monitoring"]
 categories = ["development-tools", "network-programming", "asynchronous"]
 readme = "README.md"

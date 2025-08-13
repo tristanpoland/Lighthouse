@@ -682,7 +682,7 @@ fn create_production_config() -> LighthouseConfig {
         .enable_logging(true)
         .build()
 }
-```
+
 
 ### Performance Characteristics
 
@@ -797,4 +797,5 @@ cargo run --example basic_usage
 
 [🚀 Get Started](#-quick-start) • [🐛 Report Issue](https://github.com/OmniCloudOrg/lighthouse/issues) • [💬 Discussions](https://github.com/OmniCloudOrg/lighthouse/discussions)
 
-</div>
+
+*Built with ❤️ in Rust for the modern infrastructure era.*
